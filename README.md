@@ -52,6 +52,9 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
   ("which funds hold AAPL?") is not supported.
 - `financials` defaults to 4 periods. `--ratios` is best-effort and may return
   `{"error": ...}` for entities where edgartools can't compute them.
+- For `filings` and `insiders`, `--limit` caps how many of the most-recent filings are
+  scanned; `--since` then filters within that window. Filings are returned newest-first,
+  so the result is the most-recent matching filings (raise `--limit` to look further back).
 - Rate limiting and local caching are handled by `edgartools`.
 
 ## Tests

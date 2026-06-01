@@ -8,16 +8,20 @@ by an agent (Claude Cowork); a human can add `--markdown` for readable output.
 
 - [`uv`](https://docs.astral.sh/uv/) installed.
 - Outbound HTTPS to `sec.gov` (the SEC EDGAR API).
-- A contact email in `EDGAR_IDENTITY` (SEC requires a User-Agent). Defaults to a
-  baked-in fallback if unset.
+- A contact email in `EDGAR_IDENTITY` (SEC requires a User-Agent identifying the
+  requester). Provide it via the environment or a local `.env` file — there is **no
+  baked-in default**; commands fail with `identity_missing` (exit 2) if it is unset.
 
 ## Install & run
 
 ```bash
 uv sync
-export EDGAR_IDENTITY="you@example.com"
+cp .env.example .env        # then edit .env and set EDGAR_IDENTITY=you@example.com
+# or, instead of .env:      export EDGAR_IDENTITY="you@example.com"
 uv run edgar-research company AAPL
 ```
+
+`.env` is gitignored; real environment variables take precedence over it.
 
 ## Output contract
 

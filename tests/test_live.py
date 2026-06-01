@@ -49,3 +49,32 @@ def test_read_live(capsys):
     assert data["length"] > 2000 and data["truncated"] is True
     assert len(data["text"]) == 2000
     assert "Risk" in data["text"] or "risk" in data["text"]
+
+
+def test_insiders_live(capsys):
+    rc, out = _run(capsys, ["insiders", "AAPL", "--limit", "3"])
+    assert rc == 0 and out["ok"] is True
+    assert "transactions" in out["data"]
+    assert isinstance(out["data"]["transactions"], list)
+
+
+def test_insiders_net_live(capsys):
+    rc, out = _run(capsys, ["insiders", "AAPL", "--limit", "3", "--net"])
+    assert rc == 0 and out["ok"] is True
+    assert "net_by_type" in out["data"]
+
+
+def test_holdings_live(capsys):
+    rc, out = _run(capsys, ["holdings", "BRK-A", "--limit", "10"])
+    assert rc == 0 and out["ok"] is True
+    holdings = out["data"]["holdings"]
+    assert len(holdings) >= 1
+    assert "Issuer" in holdings[0]
+    assert holdings[0]["Value"] is not None
+
+
+def test_search_live(capsys):
+    rc, out = _run(capsys, ["search", "artificial intelligence", "--form", "10-K", "--limit", "5"])
+    assert rc == 0 and out["ok"] is True
+    assert out["data"]["count"] >= 1
+    assert "company" in out["data"]["results"][0]

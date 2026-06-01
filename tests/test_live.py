@@ -37,7 +37,7 @@ def test_filings_live(capsys):
     rows = out["data"]["filings"]
     assert len(rows) >= 1
     assert all(r["form"] == "10-K" for r in rows)
-    assert rows[0]["url"].startswith("https://www.sec.gov/")
+    assert rows[0]["url"] and rows[0]["url"].startswith("https://www.sec.gov/")
 
 
 def test_read_live(capsys):

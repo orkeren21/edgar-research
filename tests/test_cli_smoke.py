@@ -64,3 +64,4 @@ def test_build_parser_all_subcommands():
     parser.parse_args(["search", "ai"])
     insiders_args = parser.parse_args(["insiders", "AAPL"])
     assert insiders_args.since is None  # regression guard for Fix 1
+    assert parser.parse_args(["insiders", "AAPL", "--net"]).net is True

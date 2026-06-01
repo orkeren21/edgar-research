@@ -23,7 +23,7 @@ def run(args):
     rows = output.dataframe_to_records(df, columns=_COLUMNS)
     report_period = output.sanitize(getattr(obj, "report_period", None))
     data = {
-        "manager": getattr(obj, "manager_name", None),
+        "manager": getattr(obj, "management_company_name", None) or getattr(obj, "manager_name", None),
         "report_period": report_period,
         "count": len(rows),
         "holdings": rows,

@@ -13,13 +13,18 @@ def _collect(c, limit, since):
     if fl is None or len(fl) == 0:
         raise NoFilingsFound(f"No Form 4 filings found for {c.name}.")
     frames = []
+    skipped = 0
     for i in range(min(limit, len(fl))):
         try:
             frames.append(fl[i].obj().to_dataframe())
         except Exception:
+            skipped += 1
             continue
     if not frames:
-        raise NoFilingsFound(f"No parseable Form 4 transactions for {c.name}.")
+        raise NoFilingsFound(
+            f"No parseable Form 4 transactions for {c.name} "
+            f"({skipped} filing(s) failed to parse)."
+        )
     combined = pd.concat(frames, ignore_index=True)
     if since and "Date" in combined.columns:
         combined = combined[combined["Date"].astype(str) >= since]

@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("insiders", help="Recent insider (Form 4) transactions.")
     sp.add_argument("ticker")
     sp.add_argument("--limit", type=int, default=10, help="Number of recent Form 4 filings to flatten.")
+    sp.add_argument("--since", default=None, help="Only transactions on/after YYYY-MM-DD.")
     sp.add_argument("--net", action="store_true", help="Aggregate buys vs sells instead of listing rows.")
 
     sp = sub.add_parser("holdings", help="Latest 13F-HR portfolio of an institution.")

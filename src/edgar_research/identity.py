@@ -7,7 +7,7 @@ from edgar import set_identity
 
 from .errors import IdentityError
 
-DEFAULT_IDENTITY = "or.keren21@gmail.com"
+DEFAULT_IDENTITY = "or.keren21@gmail.com"  # personal fallback; override via EDGAR_IDENTITY
 
 
 def resolve_identity(env: dict | None = None) -> str:

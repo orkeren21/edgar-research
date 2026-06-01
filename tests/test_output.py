@@ -60,3 +60,15 @@ def test_records_to_markdown():
     md = output.records_to_markdown([{"a": 1, "b": None}], title="T")
     assert "### T" in md
     assert "| a | b |" in md
+
+
+def test_sanitize_non_finite():
+    import numpy as np
+    assert output.sanitize(float("inf")) is None
+    assert output.sanitize(float("-inf")) is None
+    assert output.sanitize(np.float64("inf")) is None
+
+
+def test_records_to_markdown_escapes_pipe():
+    md = output.records_to_markdown([{"name": "Foo | Bar"}], title="T")
+    assert "Foo \\| Bar" in md

@@ -5,6 +5,8 @@ description = "SEC EDGAR research toolkit (edgartools wrapper) for Claude Cowork
 requires-python = ">=3.11"
 dependencies = [
     "edgartools>=5.33.0",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
 ]
 
 [project.scripts]

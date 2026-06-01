@@ -24,12 +24,13 @@ def sanitize(value: Any) -> Any:
     if isinstance(value, np.integer):
         return int(value)
     if isinstance(value, np.floating):
-        return float(value)
+        v = float(value)
+        return v if math.isfinite(v) else None
     if isinstance(value, np.bool_):
         return bool(value)
     if isinstance(value, (_dt.datetime, _dt.date)):
         return value.isoformat()
-    if isinstance(value, float) and math.isnan(value):
+    if isinstance(value, float) and not math.isfinite(value):
         return None
     return value
 
@@ -69,7 +70,7 @@ def records_to_markdown(records: list[dict], title: str | None = None) -> str:
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("| " + " | ".join("---" for _ in headers) + " |")
     for rec in records:
-        cells = ["" if rec.get(h) is None else str(rec.get(h)) for h in headers]
+        cells = ["" if rec.get(h) is None else str(rec.get(h)).replace("|", "\\|") for h in headers]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 

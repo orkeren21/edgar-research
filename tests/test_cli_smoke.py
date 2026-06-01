@@ -51,3 +51,16 @@ def test_main_error_envelope(monkeypatch, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is False
     assert out["error"]["type"] == "company_not_found"
+
+
+def test_build_parser_all_subcommands():
+    parser = cli.build_parser()
+    # every subcommand parses with minimal valid args without raising
+    parser.parse_args(["company", "AAPL"])
+    parser.parse_args(["financials", "AAPL"])
+    parser.parse_args(["filings", "AAPL"])
+    parser.parse_args(["read", "AAPL"])
+    parser.parse_args(["holdings", "BRK-A"])
+    parser.parse_args(["search", "ai"])
+    insiders_args = parser.parse_args(["insiders", "AAPL"])
+    assert insiders_args.since is None  # regression guard for Fix 1

@@ -29,3 +29,12 @@ def test_financials_live(capsys):
     assert any("revenue" in (r["line_item"] or "").lower()
                or "net sales" in (r["line_item"] or "").lower()
                for r in income["rows"])
+
+
+def test_filings_live(capsys):
+    rc, out = _run(capsys, ["filings", "AAPL", "--form", "10-K", "--limit", "3"])
+    assert rc == 0 and out["ok"] is True
+    rows = out["data"]["filings"]
+    assert len(rows) >= 1
+    assert all(r["form"] == "10-K" for r in rows)
+    assert rows[0]["url"].startswith("https://www.sec.gov/")

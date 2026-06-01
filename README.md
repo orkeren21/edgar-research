@@ -54,12 +54,60 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 
 - `holdings` is filer-centric: it returns an institution's portfolio. The reverse
   ("which funds hold AAPL?") is not supported.
-- `financials` defaults to 4 periods. `--ratios` is best-effort and may return
-  `{"error": ...}` for entities where edgartools can't compute them.
+- `financials` defaults to 4 periods. `--ratios` is best-effort and **frequently returns
+  empty** (edgartools doesn't populate per-statement ratios for many companies) — derive
+  margins / growth / FCF from the statement line items instead.
 - For `filings` and `insiders`, `--limit` caps how many of the most-recent filings are
   scanned; `--since` then filters within that window. Filings are returned newest-first,
   so the result is the most-recent matching filings (raise `--limit` to look further back).
 - Rate limiting and local caching are handled by `edgartools`.
+
+## Use as a Claude Code / Cowork skill
+
+This repo ships an agent skill at [`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md)
+that teaches Claude Code / Cowork *when* to reach for this CLI and *how* to drive it — setup,
+the seven commands, a recommended investigation sequence, and the gotchas.
+
+### 1. Put the CLI on your PATH
+
+The skill invokes the bare `edgar-research` command, so install it as a tool:
+
+```bash
+uv tool install .            # from the repo root (or: uv tool install /path/to/edgar-research)
+edgar-research --help        # confirm it resolves
+```
+
+Because the skill runs from arbitrary directories, set your SEC identity as a **persistent**
+environment variable — a repo-local `.env` is only picked up when you run from that repo:
+
+```bash
+echo 'export EDGAR_IDENTITY="you@example.com"' >> ~/.zshrc   # or ~/.bashrc
+```
+
+### 2. Claude Code (CLI)
+
+Symlink (or copy) the skill folder into a skills directory, then restart Claude Code:
+
+```bash
+# Personal — available in every project:
+ln -s "$(pwd)/skills/edgar-research" ~/.claude/skills/edgar-research
+
+# …or project-scoped — committed to a repo and shared with anyone who clones it:
+mkdir -p /path/to/your-project/.claude/skills
+ln -s "$(pwd)/skills/edgar-research" /path/to/your-project/.claude/skills/edgar-research
+```
+
+Claude Code auto-discovers skills on startup and activates this one when your request matches
+its description (you can also invoke it explicitly as `/edgar-research`). List skills with `/help`.
+
+### 3. Cowork (claude.ai / desktop)
+
+Cowork uses the same Agent Skills format. Add this skill through Cowork's **Skills / Plugins**
+feature — the most portable path is to package this repo as a plugin and install it from your
+Cowork session. The exact UI and commands evolve between Cowork versions, so follow the in-app
+flow; the skill content to register is
+[`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md), and the `edgar-research`
+CLI must be reachable in Cowork's environment (step 1).
 
 ## Tests
 

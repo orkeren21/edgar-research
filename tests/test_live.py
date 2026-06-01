@@ -31,6 +31,15 @@ def test_financials_live(capsys):
                for r in income["rows"])
 
 
+def test_financials_ratios_live(capsys):
+    rc, out = _run(capsys, ["financials", "AAPL", "--statement", "income", "--ratios"])
+    assert rc == 0 and out["ok"] is True
+    ratios = out["data"]["ratios"]
+    assert isinstance(ratios, dict) and len(ratios) > 0
+    assert "net_margin" in ratios
+    assert 0 < ratios["net_margin"] < 1
+
+
 def test_filings_live(capsys):
     rc, out = _run(capsys, ["filings", "AAPL", "--form", "10-K", "--limit", "3"])
     assert rc == 0 and out["ok"] is True

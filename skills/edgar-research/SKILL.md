@@ -42,9 +42,9 @@ Run any command with `--help` for exact flags.
 ## Recommended sequence for "is TICKER a good investment?"
 
 1. `company TICKER` — confirm you have the right entity.
-2. `financials TICKER --statement all --periods 5` — pull the line items, then compute
-   margins, growth, and FCF yourself from the rows (the `--ratios` flag is best-effort and
-   often returns empty — don't depend on it).
+2. `financials TICKER --statement all --periods 5 --ratios` — multi-period line items, plus
+   `--ratios` adds latest-period ratios (operating & net margin, ROE, ROA, current ratio,
+   debt-to-equity, debt-to-assets, FCF margin when available, revenue growth) to the JSON.
 3. `read TICKER --section risk-factors`, then `--section mda` — what management flags and
    explains. If a section is unavailable the error lists which ones are; or use `--section full`.
 4. `insiders TICKER --limit 20 --net` — conviction signal (net buying vs selling).
@@ -59,7 +59,7 @@ them; don't expect one command to do everything.
 | Pitfall | Reality |
 |---|---|
 | Skipping identity setup | First call returns `identity_missing` (exit 2). Set `EDGAR_IDENTITY` first. |
-| Relying on `--ratios` | Best-effort; frequently returns empty (`{}`/`[]`). Derive margins/growth/FCF from the statement line items yourself. |
+| `--ratios` scope | Adds **latest-period** ratios to JSON `data.ratios` (not the `--markdown` tables); a ratio is omitted when its inputs are missing. For multi-period trends, read the statement rows. |
 | A `--section` returns `usage_error` | That section isn't in this filing. The error lists which sections ARE available — retry with one, or use `--section full`. |
 | `--periods N` returns fewer than N | `N` is "up to N most recent" — bounded by available XBRL periods. |
 | Reading a long section | `read` truncates at `--max-chars`; the JSON `truncated`/`length` fields tell you if there's more. |

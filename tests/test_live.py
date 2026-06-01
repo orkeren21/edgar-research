@@ -38,3 +38,14 @@ def test_filings_live(capsys):
     assert len(rows) >= 1
     assert all(r["form"] == "10-K" for r in rows)
     assert rows[0]["url"].startswith("https://www.sec.gov/")
+
+
+def test_read_live(capsys):
+    rc, out = _run(capsys, ["read", "AAPL", "--form", "10-K",
+                            "--section", "risk-factors", "--max-chars", "2000"])
+    assert rc == 0 and out["ok"] is True
+    data = out["data"]
+    assert data["section"] == "risk-factors"
+    assert data["length"] > 2000 and data["truncated"] is True
+    assert len(data["text"]) == 2000
+    assert "Risk" in data["text"] or "risk" in data["text"]

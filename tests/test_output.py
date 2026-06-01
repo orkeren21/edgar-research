@@ -72,3 +72,12 @@ def test_sanitize_non_finite():
 def test_records_to_markdown_escapes_pipe():
     md = output.records_to_markdown([{"name": "Foo | Bar"}], title="T")
     assert "Foo \\| Bar" in md
+
+
+def test_render_cleans_non_finite_recursively():
+    import json
+    payload = output.success("x", {}, {"r": float("inf"), "nested": {"a": float("nan")}, "lst": [float("-inf"), 1.5]})
+    parsed = json.loads(output.render(payload))
+    assert parsed["data"]["r"] is None
+    assert parsed["data"]["nested"]["a"] is None
+    assert parsed["data"]["lst"] == [None, 1.5]

@@ -75,9 +75,18 @@ def records_to_markdown(records: list[dict], title: str | None = None) -> str:
     return "\n".join(lines)
 
 
+def clean(obj: Any) -> Any:
+    """Recursively make a payload JSON-safe (dicts, lists, and scalars)."""
+    if isinstance(obj, dict):
+        return {k: clean(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [clean(v) for v in obj]
+    return sanitize(obj)
+
+
 def render(payload: dict, markdown: bool = False, markdown_text: str | None = None) -> str:
     if not markdown:
-        return json.dumps(payload, indent=2, default=str)
+        return json.dumps(clean(payload), indent=2, default=str)
     if not payload.get("ok", False):
         err = payload.get("error", {})
         return f"**Error ({err.get('type', 'error')}):** {err.get('message', '')}"

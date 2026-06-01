@@ -1,0 +1,9 @@
+{
+  "name": "edgar-research",
+  "description": "Investigate public companies as investments via SEC EDGAR — financial statements, 10-K/10-Q/8-K filings, risk factors, insider (Form 4) trades, 13F holdings, and full-text filing search.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Or Keren"
+  },
+  "homepage": "https://github.com/orkeren21/edgar-research"
+}

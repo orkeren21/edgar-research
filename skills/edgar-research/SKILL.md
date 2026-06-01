@@ -18,8 +18,9 @@ web hearsay.
   `EDGAR_IDENTITY` (an env var, or a `.env` file in the working dir). If it is unset,
   **every command fails with `identity_missing` (exit 2)** — there is no default. See the
   repo README for `.env` setup.
-- **Invocation:** run `edgar-research <command> …` (install on PATH via
-  `uv tool install <repo-path>`), or `uv run edgar-research …` from inside the repo.
+- **Invocation:** if `edgar-research` is on your PATH, run `edgar-research <command> …`.
+  Otherwise (e.g. in Cowork, no local clone) run it with **no install**:
+  `uvx --from git+https://github.com/orkeren21/edgar-research.git edgar-research <command> …`.
   Requires outbound network to `sec.gov`.
 - **Output:** JSON by default — read the `data` field and reason over it. Add the global
   `--markdown` flag *before* the subcommand for human-readable tables.

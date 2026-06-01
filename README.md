@@ -62,52 +62,51 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
   so the result is the most-recent matching filings (raise `--limit` to look further back).
 - Rate limiting and local caching are handled by `edgartools`.
 
-## Use as a Claude Code / Cowork skill
+## Install as a Claude Code / Cowork plugin
 
-This repo ships an agent skill at [`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md)
-that teaches Claude Code / Cowork *when* to reach for this CLI and *how* to drive it — setup,
-the seven commands, a recommended investigation sequence, and the gotchas.
+This repo is a single-plugin **marketplace** (`.claude-plugin/marketplace.json` +
+`.claude-plugin/plugin.json`) that ships the agent skill at
+[`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md) — it teaches the agent
+*when* to reach for this CLI and *how* to drive it (setup, the seven commands, a recommended
+investigation sequence, and gotchas).
 
-### 1. Put the CLI on your PATH
+### Claude Code (CLI)
 
-The skill invokes the bare `edgar-research` command, so install it as a tool:
-
-```bash
-uv tool install .            # from the repo root (or: uv tool install /path/to/edgar-research)
-edgar-research --help        # confirm it resolves
+```text
+/plugin marketplace add orkeren21/edgar-research
+/plugin install edgar-research@edgar-research
 ```
 
-Because the skill runs from arbitrary directories, set your SEC identity as a **persistent**
-environment variable — a repo-local `.env` is only picked up when you run from that repo:
+Restart Claude Code (or run `/reload-plugins`). The skill activates automatically when a
+request matches it, and is invocable as `/edgar-research:edgar-research`. This works with
+private repos too (it uses your local `gh` auth).
 
-```bash
-echo 'export EDGAR_IDENTITY="you@example.com"' >> ~/.zshrc   # or ~/.bashrc
-```
+*(Prefer just the skill, without the plugin? Symlink it in and restart:
+`ln -s "$(pwd)/skills/edgar-research" ~/.claude/skills/edgar-research`.)*
 
-### 2. Claude Code (CLI)
+### Cowork (desktop / claude.ai)
 
-Symlink (or copy) the skill folder into a skills directory, then restart Claude Code:
+Cowork manages plugins through its UI — **Customize → Plugins**. Add this repo
+(`orkeren21/edgar-research`) as a plugin source, then install **edgar-research** and choose a
+scope. Plugin management in Cowork is UI-driven and evolving, so follow the in-app flow; the
+repo must be reachable by Cowork (public, or a marketplace your org admin has configured).
 
-```bash
-# Personal — available in every project:
-ln -s "$(pwd)/skills/edgar-research" ~/.claude/skills/edgar-research
+### Make the CLI runnable
 
-# …or project-scoped — committed to a repo and shared with anyone who clones it:
-mkdir -p /path/to/your-project/.claude/skills
-ln -s "$(pwd)/skills/edgar-research" /path/to/your-project/.claude/skills/edgar-research
-```
+The skill shells out to `edgar-research`. Provide it either way:
 
-Claude Code auto-discovers skills on startup and activates this one when your request matches
-its description (you can also invoke it explicitly as `/edgar-research`). List skills with `/help`.
+- **On PATH** (local machines): `uv tool install .` from the repo root, or
+  `uv tool install git+https://github.com/orkeren21/edgar-research.git`.
+- **Zero-install** (Cowork sandbox / no clone): the skill runs it via
+  `uvx --from git+https://github.com/orkeren21/edgar-research.git edgar-research …` —
+  no setup beyond `uv` + outbound network.
 
-### 3. Cowork (claude.ai / desktop)
+### Set your SEC identity
 
-Cowork uses the same Agent Skills format. Add this skill through Cowork's **Skills / Plugins**
-feature — the most portable path is to package this repo as a plugin and install it from your
-Cowork session. The exact UI and commands evolve between Cowork versions, so follow the in-app
-flow; the skill content to register is
-[`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md), and the `edgar-research`
-CLI must be reachable in Cowork's environment (step 1).
+`EDGAR_IDENTITY` is required (no default). For skill use across directories, set it
+persistently — `export EDGAR_IDENTITY="you@example.com"` in your shell profile or your
+Claude Code / Cowork environment settings — or prefix individual commands
+(`EDGAR_IDENTITY=you@example.com edgar-research …`).
 
 ## Tests
 

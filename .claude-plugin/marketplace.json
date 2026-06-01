@@ -1,0 +1,13 @@
+{
+  "name": "edgar-research",
+  "owner": {
+    "name": "Or Keren"
+  },
+  "plugins": [
+    {
+      "name": "edgar-research",
+      "source": "./",
+      "description": "Investigate public companies as investments via SEC EDGAR (financials, filings, insider trades, 13F holdings, full-text search)."
+    }
+  ]
+}

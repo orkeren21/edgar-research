@@ -10,6 +10,15 @@ _SECTION_ATTR = {
 }
 
 
+def _available_sections(obj) -> list[str]:
+    """Section names whose text is actually present on this filing object.
+
+    edgartools exposes sections per-filing, so a section valid for one company's
+    10-K (e.g. risk-factors) may be absent in another's.
+    """
+    return [name for name, attr in _SECTION_ATTR.items() if getattr(obj, attr, None)]
+
+
 def run(args):
     c = Company(args.ticker)
     fl = c.get_filings(form=args.form)
@@ -22,8 +31,12 @@ def run(args):
         obj = filing.obj()
         text = getattr(obj, _SECTION_ATTR[args.section], None)
         if not text:
+            available = _available_sections(obj)
+            hint = (f" Available sections in this filing: {', '.join(available)}."
+                    if available else "")
             raise UsageError(
                 f"Section '{args.section}' not available in {args.form} for {args.ticker}."
+                f"{hint} Or use --section full."
             )
     text = text or ""
     total = len(text)

@@ -54,12 +54,59 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 
 - `holdings` is filer-centric: it returns an institution's portfolio. The reverse
   ("which funds hold AAPL?") is not supported.
-- `financials` defaults to 4 periods. `--ratios` is best-effort and may return
-  `{"error": ...}` for entities where edgartools can't compute them.
+- `financials` defaults to 4 periods. `--ratios` is best-effort and **frequently returns
+  empty** (edgartools doesn't populate per-statement ratios for many companies) — derive
+  margins / growth / FCF from the statement line items instead.
 - For `filings` and `insiders`, `--limit` caps how many of the most-recent filings are
   scanned; `--since` then filters within that window. Filings are returned newest-first,
   so the result is the most-recent matching filings (raise `--limit` to look further back).
 - Rate limiting and local caching are handled by `edgartools`.
+
+## Install as a Claude Code / Cowork plugin
+
+This repo is a single-plugin **marketplace** (`.claude-plugin/marketplace.json` +
+`.claude-plugin/plugin.json`) that ships the agent skill at
+[`skills/edgar-research/SKILL.md`](skills/edgar-research/SKILL.md) — it teaches the agent
+*when* to reach for this CLI and *how* to drive it (setup, the seven commands, a recommended
+investigation sequence, and gotchas).
+
+### Claude Code (CLI)
+
+```text
+/plugin marketplace add orkeren21/edgar-research
+/plugin install edgar-research@edgar-research
+```
+
+Restart Claude Code (or run `/reload-plugins`). The skill activates automatically when a
+request matches it, and is invocable as `/edgar-research:edgar-research`. This works with
+private repos too (it uses your local `gh` auth).
+
+*(Prefer just the skill, without the plugin? Symlink it in and restart:
+`ln -s "$(pwd)/skills/edgar-research" ~/.claude/skills/edgar-research`.)*
+
+### Cowork (desktop / claude.ai)
+
+Cowork manages plugins through its UI — **Customize → Plugins**. Add this repo
+(`orkeren21/edgar-research`) as a plugin source, then install **edgar-research** and choose a
+scope. Plugin management in Cowork is UI-driven and evolving, so follow the in-app flow; the
+repo must be reachable by Cowork (public, or a marketplace your org admin has configured).
+
+### Make the CLI runnable
+
+The skill shells out to `edgar-research`. Provide it either way:
+
+- **On PATH** (local machines): `uv tool install .` from the repo root, or
+  `uv tool install git+https://github.com/orkeren21/edgar-research.git`.
+- **Zero-install** (Cowork sandbox / no clone): the skill runs it via
+  `uvx --from git+https://github.com/orkeren21/edgar-research.git edgar-research …` —
+  no setup beyond `uv` + outbound network.
+
+### Set your SEC identity
+
+`EDGAR_IDENTITY` is required (no default). For skill use across directories, set it
+persistently — `export EDGAR_IDENTITY="you@example.com"` in your shell profile or your
+Claude Code / Cowork environment settings — or prefix individual commands
+(`EDGAR_IDENTITY=you@example.com edgar-research …`).
 
 ## Tests
 

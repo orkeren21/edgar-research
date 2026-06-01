@@ -34,6 +34,79 @@ def _statement_records(stmt, periods):
     return rows, period_cols
 
 
+_REVENUE_CONCEPTS = (
+    "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax",
+    "us-gaap_RevenueFromContractWithCustomerIncludingAssessedTax",
+    "us-gaap_Revenues",
+    "us-gaap_SalesRevenueNet",
+)
+
+
+def _safe_div(numerator, denominator):
+    if numerator is None or denominator in (None, 0):
+        return None
+    return numerator / denominator
+
+
+def _ratios_from_metrics(metrics: dict) -> dict:
+    """Latest-period ratios derived from edgartools' financial metrics.
+
+    Any ratio whose inputs are missing is omitted (not emitted as null), so the
+    output contains only what could actually be computed.
+    """
+    m = metrics or {}
+    revenue = m.get("revenue")
+    net_income = m.get("net_income")
+    operating_income = m.get("operating_income")
+    total_assets = m.get("total_assets")
+    equity = m.get("stockholders_equity")
+    # Prefer the accounting identity for liabilities (Assets - Equity): edgartools'
+    # total_liabilities metric sometimes mis-tags to LiabilitiesAndStockholdersEquity
+    # (which equals total assets), producing a bogus debt_to_assets of 1.0.
+    if total_assets is not None and equity is not None:
+        total_liabilities = total_assets - equity
+    else:
+        total_liabilities = m.get("total_liabilities")
+    candidates = {
+        "operating_margin": _safe_div(operating_income, revenue),
+        "net_margin": _safe_div(net_income, revenue),
+        "return_on_equity": _safe_div(net_income, equity),
+        "return_on_assets": _safe_div(net_income, total_assets),
+        "current_ratio": _safe_div(m.get("current_assets"), m.get("current_liabilities")),
+        "debt_to_equity": _safe_div(total_liabilities, equity),
+        "debt_to_assets": _safe_div(total_liabilities, total_assets),
+        "fcf_margin": _safe_div(m.get("free_cash_flow"), revenue),
+    }
+    return {name: value for name, value in candidates.items() if value is not None}
+
+
+def _latest_two_revenue(income_df):
+    """(latest, prior) revenue from an income-statement dataframe, else (None, None)."""
+    if "concept" not in income_df.columns:
+        return (None, None)
+    period_cols = [c for c in income_df.columns if c not in _METADATA_COLS]
+    if len(period_cols) < 2:
+        return (None, None)
+    for concept in _REVENUE_CONCEPTS:
+        match = income_df[income_df["concept"] == concept]
+        if not match.empty:
+            row = match.iloc[0]
+            return (output.sanitize(row[period_cols[0]]), output.sanitize(row[period_cols[1]]))
+    return (None, None)
+
+
+def _compute_ratios(fin) -> dict:
+    """Latest-period ratios (margins, returns, leverage) + revenue YoY growth."""
+    ratios = _ratios_from_metrics(fin.get_financial_metrics())
+    try:
+        latest, prior = _latest_two_revenue(fin.income_statement().to_dataframe())
+        if latest is not None and prior not in (None, 0):
+            ratios["revenue_growth"] = (latest - prior) / prior
+    except Exception:
+        pass  # growth is best-effort; omit if the income statement can't be read
+    return ratios
+
+
 def run(args):
     c = Company(args.ticker)
     fin = c.get_financials()
@@ -46,11 +119,7 @@ def run(args):
         data[key] = {"periods": period_cols, "rows": rows}
         md_parts.append(f"## {key.title()} statement\n\n{stmt.to_markdown()}")
     if args.ratios:
-        primary = "income" if "income" in wanted else wanted[0]
-        try:
-            data["ratios"] = getattr(fin, _STATEMENTS[primary])().calculate_ratios()
-        except Exception as exc:  # ratios are best-effort
-            data["ratios"] = {"error": str(exc)}
+        data["ratios"] = _compute_ratios(fin)
     payload = output.success(
         "financials",
         {"ticker": args.ticker, "statement": args.statement,

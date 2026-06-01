@@ -54,9 +54,10 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 
 - `holdings` is filer-centric: it returns an institution's portfolio. The reverse
   ("which funds hold AAPL?") is not supported.
-- `financials` defaults to 4 periods. `--ratios` is best-effort and **frequently returns
-  empty** (edgartools doesn't populate per-statement ratios for many companies) — derive
-  margins / growth / FCF from the statement line items instead.
+- `financials` defaults to 4 periods. `--ratios` adds **latest-period** ratios to
+  `data.ratios` (JSON): operating & net margin, ROE, ROA, current ratio, debt-to-equity,
+  debt-to-assets, FCF margin (when available), and revenue YoY growth. A ratio is omitted
+  when its inputs are missing. For multi-period ratio trends, compute from the statement rows.
 - For `filings` and `insiders`, `--limit` caps how many of the most-recent filings are
   scanned; `--since` then filters within that window. Filings are returned newest-first,
   so the result is the most-recent matching filings (raise `--limit` to look further back).

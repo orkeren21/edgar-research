@@ -1,4 +1,12 @@
-from edgar_research.concepts import canonical_for
+import pytest
+
+from edgar_research.concepts import _CANONICAL_SOURCES, canonical_for
+
+
+@pytest.mark.parametrize("canonical,concepts", list(_CANONICAL_SOURCES.items()))
+def test_all_source_concepts_round_trip(canonical, concepts):
+    for concept in concepts:
+        assert canonical_for(concept) == canonical
 
 
 def test_canonical_for_gaap():

@@ -25,6 +25,7 @@ _CANONICAL_SOURCES: dict[str, tuple[str, ...]] = {
         "us-gaap_ResearchAndDevelopmentExpense",
         "ifrs-full_ResearchAndDevelopmentExpense",
     ),
+    # net_income: us-gaap_ProfitLoss is the consolidated P&L tag some filers use instead of NetIncomeLoss
     "net_income": ("us-gaap_NetIncomeLoss", "us-gaap_ProfitLoss", "ifrs-full_ProfitLoss"),
     "total_assets": ("us-gaap_Assets", "ifrs-full_Assets"),
     "total_liabilities": ("us-gaap_Liabilities", "ifrs-full_Liabilities"),

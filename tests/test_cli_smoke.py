@@ -53,6 +53,20 @@ def test_main_error_envelope(monkeypatch, capsys):
     assert out["error"]["type"] == "company_not_found"
 
 
+def test_main_error_envelope_markdown(monkeypatch, capsys):
+    # the error path must honor --markdown (placed after the subcommand)
+    monkeypatch.setattr(cli.identity, "apply_identity", lambda *a, **k: "x@y.com")
+
+    def boom(args):
+        raise errors.CompanyNotFound("nope")
+
+    monkeypatch.setattr(company, "run", boom)
+    rc = cli.main(["company", "ZZZZ", "--markdown"])
+    assert rc == 3
+    out = capsys.readouterr().out
+    assert out.startswith("**Error (company_not_found)")
+
+
 def test_build_parser_financials_full_flag():
     args = cli.build_parser().parse_args(["financials", "AAPL", "--full"])
     assert args.full is True

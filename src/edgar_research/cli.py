@@ -80,14 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    markdown = getattr(args, "markdown", False)
     try:
         identity.apply_identity()
-        markdown = getattr(args, "markdown", False)
         payload, markdown_text = COMMANDS[args.command].run(args)
         print(output.render(payload, markdown=markdown, markdown_text=markdown_text))
         return 0
     except Exception as exc:  # top-level boundary: classify everything
-        markdown = getattr(args, "markdown", False)
         err = errors.classify(exc)
         print(output.render(output.failure(err.error_type, err.message), markdown=markdown))
         return err.exit_code

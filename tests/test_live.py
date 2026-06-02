@@ -39,12 +39,14 @@ def test_financials_full_live(capsys):
 
 
 def test_financials_ratios_live(capsys):
-    rc, out = _run(capsys, ["financials", "AAPL", "--statement", "income", "--ratios"])
+    rc, out = _run(capsys, ["financials", "AAPL", "--statement", "income",
+                            "--ratios", "--periods", "3"])
     assert rc == 0 and out["ok"] is True
     ratios = out["data"]["ratios"]
-    assert isinstance(ratios, dict) and len(ratios) > 0
-    assert "net_margin" in ratios
-    assert 0 < ratios["net_margin"] < 1
+    assert isinstance(ratios, list) and len(ratios) >= 2
+    assert "period" in ratios[0] and "net_margin" in ratios[0]
+    assert 0 < ratios[0]["net_margin"] < 1
+    assert any("revenue_growth" in r for r in ratios)
 
 
 def test_filings_live(capsys):

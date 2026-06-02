@@ -11,5 +11,8 @@ __pycache__/
 # local secrets / config (keep .env.example tracked)
 .env
 
+# internal working notes (brainstorm specs + implementation plans) — kept on disk, not shipped
+docs/superpowers/
+
 # OS
 .DS_Store

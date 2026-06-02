@@ -24,8 +24,8 @@ web hearsay.
   Requires outbound network to `sec.gov`.
 - **First call is slow:** the first `uvx --from git+… edgar-research …` run takes ~15–20s to
   fetch and build dependencies; subsequent calls are cached and fast.
-- **Output:** JSON by default — read the `data` field and reason over it. Add the global
-  `--markdown` flag *before* the subcommand for human-readable tables.
+- **Output:** JSON by default — read the `data` field and reason over it. Add the
+  `--markdown` flag (before or after the subcommand) for human-readable tables.
 
 ## Commands
 

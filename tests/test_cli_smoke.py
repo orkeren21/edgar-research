@@ -53,6 +53,12 @@ def test_main_error_envelope(monkeypatch, capsys):
     assert out["error"]["type"] == "company_not_found"
 
 
+def test_build_parser_financials_full_flag():
+    args = cli.build_parser().parse_args(["financials", "AAPL", "--full"])
+    assert args.full is True
+    assert cli.build_parser().parse_args(["financials", "AAPL"]).full is False
+
+
 def test_build_parser_all_subcommands():
     parser = cli.build_parser()
     # every subcommand parses with minimal valid args without raising

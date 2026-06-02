@@ -26,9 +26,15 @@ def test_financials_live(capsys):
     income = out["data"]["income"]
     assert len(income["periods"]) >= 1
     assert len(income["rows"]) > 0
-    assert any("revenue" in (r["line_item"] or "").lower()
-               or "net sales" in (r["line_item"] or "").lower()
-               for r in income["rows"])
+    assert any(r.get("canonical") == "revenue" for r in income["rows"])
+    assert len(income["rows"]) < 25  # compact headline view, not the full dimensional dump
+
+
+def test_financials_full_live(capsys):
+    rc_c, out_c = _run(capsys, ["financials", "AAPL", "--statement", "income", "--periods", "3"])
+    rc_f, out_f = _run(capsys, ["financials", "AAPL", "--statement", "income", "--periods", "3", "--full"])
+    assert rc_c == 0 and rc_f == 0
+    assert len(out_f["data"]["income"]["rows"]) > len(out_c["data"]["income"]["rows"])
 
 
 def test_financials_ratios_live(capsys):

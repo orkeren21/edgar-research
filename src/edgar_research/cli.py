@@ -37,6 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--statement", choices=["income", "balance", "cashflow", "all"], default="all")
     sp.add_argument("--periods", type=int, default=4)
     sp.add_argument("--ratios", action="store_true", help="Include derived ratios.")
+    sp.add_argument("--full", action="store_true",
+                    help="Return the complete statement dump (all dimensional rows) "
+                         "instead of the compact headline view.")
 
     sp = sub.add_parser("filings", help="List a company's filings.")
     sp.add_argument("ticker")

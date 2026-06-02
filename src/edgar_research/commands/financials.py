@@ -1,6 +1,7 @@
 from edgar import Company
 
 from .. import output
+from ..concepts import canonical_for
 
 # Columns in a Statement.to_dataframe() that describe the row, not a period value.
 _METADATA_COLS = {
@@ -17,21 +18,40 @@ _STATEMENTS = {
 }
 
 
-def _statement_records(stmt, periods):
+def _period_columns(df):
+    return [c for c in df.columns if c not in _METADATA_COLS]
+
+
+def _is_headline(row) -> bool:
+    """True for a real line item (not an abstract header or dimensional breakdown)."""
+    for col in ("abstract", "dimension", "is_breakdown"):
+        if col in row and bool(row[col]):
+            return False
+    return True
+
+
+def _statement_records(stmt, periods, full=False):
     df = stmt.to_dataframe()
-    period_cols = [c for c in df.columns if c not in _METADATA_COLS][:periods]
+    period_cols = _period_columns(df)[:periods]
     rows = []
     for _, row in df.iterrows():
+        if not full and not _is_headline(row):
+            continue
         values = {p: output.sanitize(row[p]) for p in period_cols}
         if all(v is None for v in values.values()):
             continue
         rec = {
-            "line_item": output.sanitize(row.get("label")),
+            "label": output.sanitize(row.get("label")),
             "concept": output.sanitize(row.get("concept")),
+            "canonical": canonical_for(row.get("concept")),
         }
         rec.update(values)
         rows.append(rec)
     return rows, period_cols
+
+
+def _statement_markdown(stmt, rows, full):
+    return stmt.to_markdown() if full else output.records_to_markdown(rows)
 
 
 _REVENUE_CONCEPTS = (
@@ -115,15 +135,15 @@ def run(args):
     md_parts = []
     for key in wanted:
         stmt = getattr(fin, _STATEMENTS[key])()
-        rows, period_cols = _statement_records(stmt, args.periods)
+        rows, period_cols = _statement_records(stmt, args.periods, full=args.full)
         data[key] = {"periods": period_cols, "rows": rows}
-        md_parts.append(f"## {key.title()} statement\n\n{stmt.to_markdown()}")
+        md_parts.append(f"## {key.title()} statement\n\n" + _statement_markdown(stmt, rows, args.full))
     if args.ratios:
         data["ratios"] = _compute_ratios(fin)
     payload = output.success(
         "financials",
         {"ticker": args.ticker, "statement": args.statement,
-         "periods": args.periods, "ratios": args.ratios},
+         "periods": args.periods, "ratios": args.ratios, "full": args.full},
         data,
     )
     return payload, "\n\n".join(md_parts)

@@ -33,7 +33,8 @@ Every command prints a JSON envelope to stdout:
 ```
 
 On failure: `{ "ok": false, "error": { "type": "...", "message": "..." } }` plus a
-non-zero exit code. Add `--markdown` (before the subcommand) for human-readable tables.
+non-zero exit code. Add `--markdown` for human-readable tables.
+`--markdown` may be placed before or after the subcommand.
 
 Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 `no_filings_found` (4), `network_error` (5), `usage_error` (6), `unexpected_error` (1).
@@ -43,9 +44,9 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 | Command | Description |
 |---|---|
 | `company TICKER` | Identity card: name, CIK, tickers, industry, SIC, fiscal-year-end, recent filings. |
-| `financials TICKER [--statement income\|balance\|cashflow\|all] [--periods N] [--ratios]` | Multi-period statements (periods as columns) + optional ratios. |
+| `financials TICKER [--statement income\|balance\|cashflow\|all] [--periods N] [--ratios] [--full]` | Compact headline statements (`--full` for the complete dump) + optional per-period ratios. |
 | `filings TICKER [--form 10-K] [--limit N] [--since YYYY-MM-DD]` | List filings with metadata + URLs. |
-| `read TICKER [--form 10-K] [--section risk-factors\|mda\|business\|full] [--max-chars N]` | Extract readable filing text (chunked with a `truncated` flag). |
+| `read TICKER [--form 10-K] [--section risk-factors\|mda\|business\|full] [--max-chars N]` | Read filing prose; defaults to the latest annual report (10-K/20-F/40-F) when `--form` is omitted. |
 | `insiders TICKER [--limit N] [--since YYYY-MM-DD] [--net]` | Recent Form 4 transactions; `--net` aggregates by transaction type. |
 | `holdings INSTITUTION [--limit N]` | Latest 13F-HR portfolio of an institutional filer (top N by value). |
 | `search QUERY [--form ...] [--date-range YYYY-MM-DD:YYYY-MM-DD] [--limit N]` | Full-text EDGAR search. |
@@ -54,10 +55,13 @@ Error types / exit codes: `identity_missing` (2), `company_not_found` (3),
 
 - `holdings` is filer-centric: it returns an institution's portfolio. The reverse
   ("which funds hold AAPL?") is not supported.
-- `financials` defaults to 4 periods. `--ratios` adds **latest-period** ratios to
-  `data.ratios` (JSON): operating & net margin, ROE, ROA, current ratio, debt-to-equity,
-  debt-to-assets, FCF margin (when available), and revenue YoY growth. A ratio is omitted
-  when its inputs are missing. For multi-period ratio trends, compute from the statement rows.
+- `financials` returns **compact headline lines by default** (dimensional/segment/zero rows
+  dropped; each row carries a `canonical` label where recognized). Pass `--full` for the
+  complete dump. `--ratios` returns a **per-period list** in `data.ratios` (gross/operating/net
+  margin, ROE, ROA, current ratio, debt-to-equity, debt-to-assets, FCF margin, revenue growth),
+  omitting any ratio whose inputs are missing for that period.
+- `read` defaults to the latest annual report across 10-K / 20-F / 40-F when `--form` is
+  omitted (so foreign private issuers work without specifying the form).
 - For `filings` and `insiders`, `--limit` caps how many of the most-recent filings are
   scanned; `--since` then filters within that window. Filings are returned newest-first,
   so the result is the most-recent matching filings (raise `--limit` to look further back).

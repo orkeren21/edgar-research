@@ -22,6 +22,8 @@ web hearsay.
   Otherwise (e.g. in Cowork, no local clone) run it with **no install**:
   `uvx --from git+https://github.com/orkeren21/edgar-research.git edgar-research <command> …`.
   Requires outbound network to `sec.gov`.
+- **First call is slow:** the first `uvx --from git+… edgar-research …` run takes ~15–20s to
+  fetch and build dependencies; subsequent calls are cached and fast.
 - **Output:** JSON by default — read the `data` field and reason over it. Add the global
   `--markdown` flag *before* the subcommand for human-readable tables.
 
@@ -30,9 +32,9 @@ web hearsay.
 | Command | Use it to… |
 |---|---|
 | `company TICKER` | Confirm the entity; get CIK, industry, fiscal year, recent filings |
-| `financials TICKER [--statement income\|balance\|cashflow\|all] [--periods N] [--ratios]` | Pull multi-period statements (+ ratios) — the core "is this a good business?" data |
+| `financials TICKER [--statement income\|balance\|cashflow\|all] [--periods N] [--ratios] [--full]` | Compact headline statements by default (dimensional/zero rows dropped, `canonical` label added); `--ratios` adds per-period ratios; `--full` returns the complete dump |
 | `filings TICKER [--form 10-K] [--limit N] [--since YYYY-MM-DD]` | Discover which filings exist, with dates + URLs |
-| `read TICKER [--form 10-K] [--section risk-factors\|mda\|business\|full] [--max-chars N]` | Read filing prose — risk factors, MD&A, business overview |
+| `read TICKER [--form 10-K] [--section risk-factors\|mda\|business\|full] [--max-chars N]` | Read filing prose. With no `--form`, defaults to the latest annual report (10-K/20-F/40-F — handles foreign issuers) |
 | `insiders TICKER [--limit N] [--since YYYY-MM-DD] [--net]` | Form 4 insider buys/sells; `--net` aggregates by transaction type |
 | `holdings INSTITUTION [--limit N]` | An institution's latest 13F portfolio (filer-centric, e.g. `BRK-A`) |
 | `search "QUERY" [--form 10-K] [--date-range A:B] [--limit N]` | Full-text search across all EDGAR filings since 1994 |
@@ -42,11 +44,13 @@ Run any command with `--help` for exact flags.
 ## Recommended sequence for "is TICKER a good investment?"
 
 1. `company TICKER` — confirm you have the right entity.
-2. `financials TICKER --statement all --periods 5 --ratios` — multi-period line items, plus
-   `--ratios` adds latest-period ratios (operating & net margin, ROE, ROA, current ratio,
-   debt-to-equity, debt-to-assets, FCF margin when available, revenue growth) to the JSON.
-3. `read TICKER --section risk-factors`, then `--section mda` — what management flags and
-   explains. If a section is unavailable the error lists which ones are; or use `--section full`.
+2. `financials TICKER --statement all --periods 5 --ratios` — compact headline lines by
+   default, each tagged with a `canonical` name; `--ratios` returns a per-period list
+   (margins, ROE/ROA, leverage, revenue growth). Add `--full` only if you need the complete
+   dimensional dump.
+3. `read TICKER --section risk-factors`, then `--section mda` — no `--form` needed; it finds
+   the latest annual report (10-K or, for foreign issuers, 20-F). If a section is unavailable
+   the error lists which ones are; or use `--section full`.
 4. `insiders TICKER --limit 20 --net` — conviction signal (net buying vs selling).
 5. Synthesize: business quality + trajectory + risks + insider behavior → assessment.
 
@@ -59,9 +63,10 @@ them; don't expect one command to do everything.
 | Pitfall | Reality |
 |---|---|
 | Skipping identity setup | First call returns `identity_missing` (exit 2). Set `EDGAR_IDENTITY` first. |
-| `--ratios` scope | Adds **latest-period** ratios to JSON `data.ratios` (not the `--markdown` tables); a ratio is omitted when its inputs are missing. For multi-period trends, read the statement rows. |
-| A `--section` returns `usage_error` | That section isn't in this filing. The error lists which sections ARE available — retry with one, or use `--section full`. |
+| Financials output | Compact headline lines by default; pass `--full` for every dimensional/segment row. Each row has a `canonical` field (null when unmapped). |
+| `--ratios` shape | A **per-period list** under `data.ratios`, newest-first, each `{period, …ratios}`; a ratio is omitted for a period when its inputs are missing. |
 | `--periods N` returns fewer than N | `N` is "up to N most recent" — bounded by available XBRL periods. |
+| A `--section` returns `usage_error` | That section isn't in this filing. The error lists which sections ARE available — retry with one, or use `--section full`. |
 | Reading a long section | `read` truncates at `--max-chars`; the JSON `truncated`/`length` fields tell you if there's more. |
 | Using `holdings` for "who owns TICKER?" | 13F is filer-centric: it returns an *institution's* portfolio, not the holders of a stock. |
 | Bad/unknown ticker | Returns `company_not_found` (exit 3) — check the symbol or pass a CIK. |

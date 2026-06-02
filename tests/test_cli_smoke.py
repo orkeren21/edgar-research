@@ -10,7 +10,7 @@ def test_build_parser_company():
     args = cli.build_parser().parse_args(["company", "AAPL"])
     assert args.command == "company"
     assert args.ticker == "AAPL"
-    assert args.markdown is False
+    assert getattr(args, "markdown", False) is False
 
 
 def test_build_parser_financials_defaults():
@@ -51,6 +51,33 @@ def test_main_error_envelope(monkeypatch, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is False
     assert out["error"]["type"] == "company_not_found"
+
+
+def test_main_error_envelope_markdown(monkeypatch, capsys):
+    # the error path must honor --markdown (placed after the subcommand)
+    monkeypatch.setattr(cli.identity, "apply_identity", lambda *a, **k: "x@y.com")
+
+    def boom(args):
+        raise errors.CompanyNotFound("nope")
+
+    monkeypatch.setattr(company, "run", boom)
+    rc = cli.main(["company", "ZZZZ", "--markdown"])
+    assert rc == 3
+    out = capsys.readouterr().out
+    assert out.startswith("**Error (company_not_found)")
+
+
+def test_build_parser_financials_full_flag():
+    args = cli.build_parser().parse_args(["financials", "AAPL", "--full"])
+    assert args.full is True
+    assert cli.build_parser().parse_args(["financials", "AAPL"]).full is False
+
+
+def test_markdown_accepted_before_and_after_subcommand():
+    p = cli.build_parser()
+    assert getattr(p.parse_args(["--markdown", "company", "AAPL"]), "markdown", False) is True
+    assert getattr(p.parse_args(["company", "--markdown", "AAPL"]), "markdown", False) is True
+    assert getattr(p.parse_args(["company", "AAPL"]), "markdown", False) is False
 
 
 def test_build_parser_all_subcommands():

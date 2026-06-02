@@ -1,6 +1,8 @@
+import pandas as pd
 from edgar import Company
 
 from .. import output
+from ..concepts import canonical_for
 
 # Columns in a Statement.to_dataframe() that describe the row, not a period value.
 _METADATA_COLS = {
@@ -17,29 +19,42 @@ _STATEMENTS = {
 }
 
 
-def _statement_records(stmt, periods):
+def _period_columns(df):
+    return [c for c in df.columns if c not in _METADATA_COLS]
+
+
+def _is_headline(row) -> bool:
+    """True for a real line item (not an abstract header or dimensional breakdown)."""
+    for col in ("abstract", "dimension", "is_breakdown"):
+        if col in row and not pd.isna(row[col]) and row[col]:
+            return False
+    return True
+
+
+def _statement_records(stmt, periods, full=False):
     df = stmt.to_dataframe()
-    period_cols = [c for c in df.columns if c not in _METADATA_COLS][:periods]
+    period_cols = _period_columns(df)[:periods]
     rows = []
     for _, row in df.iterrows():
+        if not full and not _is_headline(row):
+            continue
         values = {p: output.sanitize(row[p]) for p in period_cols}
         if all(v is None for v in values.values()):
             continue
         rec = {
-            "line_item": output.sanitize(row.get("label")),
+            "label": output.sanitize(row.get("label")),
             "concept": output.sanitize(row.get("concept")),
+            "canonical": canonical_for(row.get("concept")),
         }
         rec.update(values)
         rows.append(rec)
     return rows, period_cols
 
 
-_REVENUE_CONCEPTS = (
-    "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax",
-    "us-gaap_RevenueFromContractWithCustomerIncludingAssessedTax",
-    "us-gaap_Revenues",
-    "us-gaap_SalesRevenueNet",
-)
+def _statement_markdown(stmt, rows, full):
+    """Markdown for a statement. ``rows`` is used only in compact mode; full mode
+    re-renders the complete edgartools frame."""
+    return stmt.to_markdown() if full else output.records_to_markdown(rows)
 
 
 def _safe_div(numerator, denominator):
@@ -48,63 +63,110 @@ def _safe_div(numerator, denominator):
     return numerator / denominator
 
 
-def _ratios_from_metrics(metrics: dict) -> dict:
-    """Latest-period ratios derived from edgartools' financial metrics.
+def _canonical_ordered(df):
+    """(period_labels, {canonical_name: [values aligned to period_labels]}).
 
-    Any ratio whose inputs are missing is omitted (not emitted as null), so the
-    output contains only what could actually be computed.
+    Reads only headline rows; the first match per canonical name wins (the headline
+    line, not a dimensional duplicate sharing the same concept).
     """
-    m = metrics or {}
-    revenue = m.get("revenue")
-    net_income = m.get("net_income")
-    operating_income = m.get("operating_income")
-    total_assets = m.get("total_assets")
-    equity = m.get("stockholders_equity")
-    # Prefer the accounting identity for liabilities (Assets - Equity): edgartools'
-    # total_liabilities metric sometimes mis-tags to LiabilitiesAndStockholdersEquity
-    # (which equals total assets), producing a bogus debt_to_assets of 1.0.
-    if total_assets is not None and equity is not None:
-        total_liabilities = total_assets - equity
-    else:
-        total_liabilities = m.get("total_liabilities")
-    candidates = {
-        "operating_margin": _safe_div(operating_income, revenue),
-        "net_margin": _safe_div(net_income, revenue),
-        "return_on_equity": _safe_div(net_income, equity),
-        "return_on_assets": _safe_div(net_income, total_assets),
-        "current_ratio": _safe_div(m.get("current_assets"), m.get("current_liabilities")),
-        "debt_to_equity": _safe_div(total_liabilities, equity),
-        "debt_to_assets": _safe_div(total_liabilities, total_assets),
-        "fcf_margin": _safe_div(m.get("free_cash_flow"), revenue),
-    }
-    return {name: value for name, value in candidates.items() if value is not None}
+    if "concept" not in df.columns:
+        return [], {}
+    period_cols = _period_columns(df)
+    series = {}
+    for _, row in df.iterrows():
+        if not _is_headline(row):
+            continue
+        name = canonical_for(row.get("concept"))
+        if name is None or name in series:
+            continue
+        series[name] = [output.sanitize(row[p]) for p in period_cols]
+    return period_cols, series
 
 
-def _latest_two_revenue(income_df):
-    """(latest, prior) revenue from an income-statement dataframe, else (None, None)."""
-    if "concept" not in income_df.columns:
-        return (None, None)
-    period_cols = [c for c in income_df.columns if c not in _METADATA_COLS]
-    if len(period_cols) < 2:
-        return (None, None)
-    for concept in _REVENUE_CONCEPTS:
-        match = income_df[income_df["concept"] == concept]
-        if not match.empty:
-            row = match.iloc[0]
-            return (output.sanitize(row[period_cols[0]]), output.sanitize(row[period_cols[1]]))
-    return (None, None)
+def _val(series, name, i):
+    vals = series.get(name)
+    if vals is None or i >= len(vals):
+        return None
+    return vals[i]
 
 
-def _compute_ratios(fin) -> dict:
-    """Latest-period ratios (margins, returns, leverage) + revenue YoY growth."""
-    ratios = _ratios_from_metrics(fin.get_financial_metrics())
-    try:
-        latest, prior = _latest_two_revenue(fin.income_statement().to_dataframe())
-        if latest is not None and prior not in (None, 0):
-            ratios["revenue_growth"] = (latest - prior) / prior
-    except Exception:
-        pass  # growth is best-effort; omit if the income statement can't be read
-    return ratios
+def _period_key(label):
+    """Normalize a period column label to its fiscal date.
+
+    Income/cashflow columns look like '2025-09-27 (FY)'; balance-sheet (instant)
+    columns look like '2025-09-27'. Both normalize to '2025-09-27', so balance and
+    cashflow values can be matched to the income period for the same fiscal year —
+    statements routinely surface different period *counts*, so index alignment is unsafe.
+    """
+    return label.split(" ")[0] if isinstance(label, str) else label
+
+
+def _by_period_key(period_cols, series):
+    """{canonical: {period_key: value}} so values can be looked up by fiscal date."""
+    keys = [_period_key(p) for p in period_cols]
+    return {name: dict(zip(keys, vals)) for name, vals in series.items()}
+
+
+def _kget(by_key, name, key):
+    return by_key.get(name, {}).get(key)
+
+
+def _ratios_from_series(inc_periods, inc, bal_by_key, cf_by_key, periods):
+    """Pure per-period ratios (newest-first). Income items align by index; balance and
+    cashflow items align to the income period's fiscal date (period counts differ across
+    statements, so index alignment would mismatch years)."""
+    n = min(len(inc_periods), periods) if inc_periods else 0
+    result = []
+    for i in range(n):
+        key = _period_key(inc_periods[i])
+        revenue = _val(inc, "revenue", i)
+        net_income = _val(inc, "net_income", i)
+        operating_income = _val(inc, "operating_income", i)
+        gross_profit = _val(inc, "gross_profit", i)
+        total_assets = _kget(bal_by_key, "total_assets", key)
+        equity = _kget(bal_by_key, "stockholders_equity", key)
+        current_assets = _kget(bal_by_key, "current_assets", key)
+        current_liabilities = _kget(bal_by_key, "current_liabilities", key)
+        ocf = _kget(cf_by_key, "operating_cash_flow", key)
+        capex = _kget(cf_by_key, "capital_expenditures", key)
+        # Liabilities via the accounting identity (Assets - Equity); edgartools' tagged
+        # total_liabilities can mis-map to LiabilitiesAndStockholdersEquity (== assets).
+        liabilities = (total_assets - equity) if (total_assets is not None and equity is not None) else None
+        # capex is the positive cash outflow (us-gaap_PaymentsToAcquire*); FCF = OCF - capex.
+        fcf = (ocf - capex) if (ocf is not None and capex is not None) else None
+        prior_revenue = _val(inc, "revenue", i + 1)
+        revenue_growth = (
+            (revenue - prior_revenue) / prior_revenue
+            if (revenue is not None and prior_revenue not in (None, 0)) else None
+        )
+        candidates = {
+            "gross_margin": _safe_div(gross_profit, revenue),
+            "operating_margin": _safe_div(operating_income, revenue),
+            "net_margin": _safe_div(net_income, revenue),
+            "return_on_equity": _safe_div(net_income, equity),
+            "return_on_assets": _safe_div(net_income, total_assets),
+            "current_ratio": _safe_div(current_assets, current_liabilities),
+            "debt_to_equity": _safe_div(liabilities, equity),
+            "debt_to_assets": _safe_div(liabilities, total_assets),
+            "fcf_margin": _safe_div(fcf, revenue),
+            "revenue_growth": revenue_growth,
+        }
+        period_ratios = {"period": inc_periods[i]}
+        period_ratios.update({k: v for k, v in candidates.items() if v is not None})
+        result.append(period_ratios)
+    return result
+
+
+def _compute_ratios(fin, periods):
+    inc_periods, inc = _canonical_ordered(fin.income_statement().to_dataframe())
+    bal_periods, bal = _canonical_ordered(fin.balance_sheet().to_dataframe())
+    cf_periods, cf = _canonical_ordered(fin.cash_flow_statement().to_dataframe())
+    return _ratios_from_series(
+        inc_periods, inc,
+        _by_period_key(bal_periods, bal),
+        _by_period_key(cf_periods, cf),
+        periods,
+    )
 
 
 def run(args):
@@ -115,15 +177,15 @@ def run(args):
     md_parts = []
     for key in wanted:
         stmt = getattr(fin, _STATEMENTS[key])()
-        rows, period_cols = _statement_records(stmt, args.periods)
+        rows, period_cols = _statement_records(stmt, args.periods, full=args.full)
         data[key] = {"periods": period_cols, "rows": rows}
-        md_parts.append(f"## {key.title()} statement\n\n{stmt.to_markdown()}")
+        md_parts.append(f"## {key.title()} statement\n\n" + _statement_markdown(stmt, rows, args.full))
     if args.ratios:
-        data["ratios"] = _compute_ratios(fin)
+        data["ratios"] = _compute_ratios(fin, args.periods)
     payload = output.success(
         "financials",
         {"ticker": args.ticker, "statement": args.statement,
-         "periods": args.periods, "ratios": args.ratios},
+         "periods": args.periods, "ratios": args.ratios, "full": args.full},
         data,
     )
     return payload, "\n\n".join(md_parts)

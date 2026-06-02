@@ -90,24 +90,49 @@ def _val(series, name, i):
     return vals[i]
 
 
-def _ratios_from_series(inc_periods, inc, bal, cf, periods):
-    """Pure per-period ratios from ordered canonical series (newest-first)."""
+def _period_key(label):
+    """Normalize a period column label to its fiscal date.
+
+    Income/cashflow columns look like '2025-09-27 (FY)'; balance-sheet (instant)
+    columns look like '2025-09-27'. Both normalize to '2025-09-27', so balance and
+    cashflow values can be matched to the income period for the same fiscal year —
+    statements routinely surface different period *counts*, so index alignment is unsafe.
+    """
+    return label.split(" ")[0] if isinstance(label, str) else label
+
+
+def _by_period_key(period_cols, series):
+    """{canonical: {period_key: value}} so values can be looked up by fiscal date."""
+    keys = [_period_key(p) for p in period_cols]
+    return {name: dict(zip(keys, vals)) for name, vals in series.items()}
+
+
+def _kget(by_key, name, key):
+    return by_key.get(name, {}).get(key)
+
+
+def _ratios_from_series(inc_periods, inc, bal_by_key, cf_by_key, periods):
+    """Pure per-period ratios (newest-first). Income items align by index; balance and
+    cashflow items align to the income period's fiscal date (period counts differ across
+    statements, so index alignment would mismatch years)."""
     n = min(len(inc_periods), periods) if inc_periods else 0
     result = []
     for i in range(n):
+        key = _period_key(inc_periods[i])
         revenue = _val(inc, "revenue", i)
         net_income = _val(inc, "net_income", i)
         operating_income = _val(inc, "operating_income", i)
         gross_profit = _val(inc, "gross_profit", i)
-        total_assets = _val(bal, "total_assets", i)
-        equity = _val(bal, "stockholders_equity", i)
-        current_assets = _val(bal, "current_assets", i)
-        current_liabilities = _val(bal, "current_liabilities", i)
-        ocf = _val(cf, "operating_cash_flow", i)
-        capex = _val(cf, "capital_expenditures", i)
+        total_assets = _kget(bal_by_key, "total_assets", key)
+        equity = _kget(bal_by_key, "stockholders_equity", key)
+        current_assets = _kget(bal_by_key, "current_assets", key)
+        current_liabilities = _kget(bal_by_key, "current_liabilities", key)
+        ocf = _kget(cf_by_key, "operating_cash_flow", key)
+        capex = _kget(cf_by_key, "capital_expenditures", key)
         # Liabilities via the accounting identity (Assets - Equity); edgartools' tagged
         # total_liabilities can mis-map to LiabilitiesAndStockholdersEquity (== assets).
         liabilities = (total_assets - equity) if (total_assets is not None and equity is not None) else None
+        # capex is the positive cash outflow (us-gaap_PaymentsToAcquire*); FCF = OCF - capex.
         fcf = (ocf - capex) if (ocf is not None and capex is not None) else None
         prior_revenue = _val(inc, "revenue", i + 1)
         revenue_growth = (
@@ -134,9 +159,14 @@ def _ratios_from_series(inc_periods, inc, bal, cf, periods):
 
 def _compute_ratios(fin, periods):
     inc_periods, inc = _canonical_ordered(fin.income_statement().to_dataframe())
-    _, bal = _canonical_ordered(fin.balance_sheet().to_dataframe())
-    _, cf = _canonical_ordered(fin.cash_flow_statement().to_dataframe())
-    return _ratios_from_series(inc_periods, inc, bal, cf, periods)
+    bal_periods, bal = _canonical_ordered(fin.balance_sheet().to_dataframe())
+    cf_periods, cf = _canonical_ordered(fin.cash_flow_statement().to_dataframe())
+    return _ratios_from_series(
+        inc_periods, inc,
+        _by_period_key(bal_periods, bal),
+        _by_period_key(cf_periods, cf),
+        periods,
+    )
 
 
 def run(args):

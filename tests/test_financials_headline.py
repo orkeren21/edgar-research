@@ -17,6 +17,8 @@ def test_is_headline_excludes_abstract_and_dimensional():
     assert fin._is_headline(pd.Series({**base, "abstract": True})) is False
     assert fin._is_headline(pd.Series({**base, "dimension": True})) is False
     assert fin._is_headline(pd.Series({**base, "is_breakdown": True})) is False
+    # a NaN in a bool column must not crash or be misread as "excluded"
+    assert fin._is_headline(pd.Series({**base, "dimension": float("nan")})) is True
 
 
 def test_statement_records_compact_drops_noise_and_annotates_canonical():

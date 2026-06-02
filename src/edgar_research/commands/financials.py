@@ -1,3 +1,4 @@
+import pandas as pd
 from edgar import Company
 
 from .. import output
@@ -25,7 +26,7 @@ def _period_columns(df):
 def _is_headline(row) -> bool:
     """True for a real line item (not an abstract header or dimensional breakdown)."""
     for col in ("abstract", "dimension", "is_breakdown"):
-        if col in row and bool(row[col]):
+        if col in row and not pd.isna(row[col]) and row[col]:
             return False
     return True
 
@@ -51,6 +52,8 @@ def _statement_records(stmt, periods, full=False):
 
 
 def _statement_markdown(stmt, rows, full):
+    """Markdown for a statement. ``rows`` is used only in compact mode; full mode
+    re-renders the complete edgartools frame."""
     return stmt.to_markdown() if full else output.records_to_markdown(rows)
 
 

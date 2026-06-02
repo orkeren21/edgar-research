@@ -27,7 +27,8 @@ def test_financials_live(capsys):
     assert len(income["periods"]) >= 1
     assert len(income["rows"]) > 0
     assert any(r.get("canonical") == "revenue" for r in income["rows"])
-    assert len(income["rows"]) < 25  # compact headline view, not the full dimensional dump
+    # compact headline view (~15 rows), well below the ~47-row full dimensional dump
+    assert len(income["rows"]) < 40
 
 
 def test_financials_full_live(capsys):

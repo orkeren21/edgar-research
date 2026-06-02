@@ -49,7 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("read", help="Extract readable text from a filing.")
     sp.add_argument("ticker")
-    sp.add_argument("--form", default="10-K")
+    sp.add_argument("--form", default=None,
+                    help="Form type (e.g. 10-K, 20-F). Default: latest annual report "
+                         "(10-K/20-F/40-F).")
     sp.add_argument("--section", choices=["risk-factors", "mda", "business", "full"], default="full")
     sp.add_argument("--max-chars", type=int, default=50000)
 

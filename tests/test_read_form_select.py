@@ -24,3 +24,7 @@ def test_pick_latest_annual_picks_most_recent_annual():
 def test_pick_latest_annual_none_when_no_annual():
     filings = [_F("6-K", dt.date(2026, 5, 1)), _F("8-K", dt.date(2026, 6, 1))]
     assert read._pick_latest_annual(filings) is None
+
+
+def test_pick_latest_annual_empty_list():
+    assert read._pick_latest_annual([]) is None
